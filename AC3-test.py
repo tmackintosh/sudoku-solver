@@ -120,41 +120,6 @@ class Sudoku:
 
         return sudoku
 
-    def get_variable_column(self, variable):
-        column = self.columns.find(variable[0:1])
-
-        numbers = []
-        for i in range (0, 9):
-            numbers.append(self.values[column, i])
-
-        return numbers
-
-    def get_variable_row(self, variable):
-        row = self.rows.find(variable[1:2])
-
-        numbers = []
-        for i in range (0, 9):
-            numbers.append(self.values[i, row])
-
-        return numbers
-
-    def get_variable_unit(self, variable):
-        row = self.rows.find(variable[1:2])
-        column = self.columns.find(variable[0:1])
-
-        unit_number = (math.floor(column / 3), math.floor(row / 3))
-        numbers = []
-
-        for i in range (0, 3):
-            cell_column = unit_number[0] + i
-
-            for j in range (0, 3):
-                cell_row = unit_number[1] + i
-
-                numbers.append(self.values[cell_column][cell_row])
-
-        return numbers
-
 def element_should_be_removed(problem, domain2, valueA, operator):
     for valueB in str(problem.domains[domain2]):
         if eval(str(valueA) + operator + str(valueB)):
@@ -316,7 +281,7 @@ def main():
 
             correct = np.array_equal(problem.get_sudoku(), solutions[count])
             test_time = end_time - start_time
-            
+
             if not correct:
                 print("Failed test", count)
                 failed += 1
