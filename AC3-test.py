@@ -1,7 +1,10 @@
 import numpy as np
 import time
+import math
 
-difficulties = ["hard"]
+from numpy.core.fromnumeric import var
+
+difficulties = ["very_easy", "easy", "medium", "hard"]
 
 class Sudoku:
     def __init__(self, values, variables = [], domains = [], constraints = [], columns = "ABCDEFGHI", numbers = "123456789"):
@@ -24,8 +27,15 @@ class Sudoku:
         if self.unsolvable:
             return True
 
-        for domain in self.domains:
-            if self.domains[domain] > 9 or self.domains[domain] == 0:
+        for constraint in self.constraints:
+            operand1 = str(self.domains[constraint[0]])
+            operand2 = str(self.domains[constraint[1]])
+            operator = constraint[2]
+
+            if int(operand1) > 9 or int(operand2) > 9:
+                return False
+
+            if not eval(operand1 + operator + operand2):
                 return False
 
         return True
@@ -48,7 +58,7 @@ class Sudoku:
             current_value = self.values[column][row]
 
             if current_value == 0:
-                new_domains[variable] = self.rows
+                new_domains[variable] = int(self.rows)
             else:
                 new_domains[variable] = current_value
 
@@ -107,14 +117,40 @@ class Sudoku:
 
         return sudoku
 
-class Node:
-    def __init__(self, problem, parent = None):
-        self.parent = parent
-        self.problem = problem
-        self.children = []
+    def get_variable_column(self, variable):
+        column = self.columns.find(variable[0:1])
 
-    def insert_child(self, problem):
-        self.children.append(problem)
+        numbers = []
+        for i in range (0, 9):
+            numbers.append(self.values[column, i])
+
+        return numbers
+
+    def get_variable_row(self, variable):
+        row = self.rows.find(variable[1:2])
+
+        numbers = []
+        for i in range (0, 9):
+            numbers.append(self.values[i, row])
+
+        return numbers
+
+    def get_variable_unit(self, variable):
+        row = self.rows.find(variable[1:2])
+        column = self.columns.find(variable[0:1])
+
+        unit_number = (math.floor(column / 3), math.floor(row / 3))
+        numbers = []
+
+        for i in range (0, 3):
+            cell_column = unit_number[0] + i
+
+            for j in range (0, 3):
+                cell_row = unit_number[1] + i
+
+                numbers.append(self.values[cell_column][cell_row])
+
+        return numbers
 
 def element_should_be_removed(problem, domain2, valueA, operator):
     for valueB in str(problem.domains[domain2]):
@@ -162,48 +198,59 @@ def AC3(problem):
 
             problem.domains[domain] = int(str(problem.domains[domain]))
 
-def backtrack(node):
-    print("Backtrack")
-    if node.problem.is_solved():
-        return node.problem
+# Most constrained variable heuristic
+def select_unassigned_variable(problem):
+    most_constrained_variable = None
+    possible_values = np.inf
 
-    domains = []
+    for variable in problem.variables:
+        domain = problem.domains[variable]
 
-    for domain in node.problem.domains:
-        if len(str(node.problem.domains[domain])) > 1:
-            domains.append((node.problem.domains[domain], domain))
-            
-    for domain in domains:
-        shortest_domain = domain[0]
-        shortest_domain_cell = domain[1]
+        if domain < 10:
+            continue
+
+        if domain < possible_values:
+            possible_values = domain
+            most_constrained_variable = variable
+
+    return most_constrained_variable
+
+# Assign values to variables under the heuristic and assess whether they've
+# valid or not. If not, backtrack up and start again using a different value.
+def backtrack(problem, depth = 0):
+    if problem.is_solved():
+        return problem
+
+    starting_variable = select_unassigned_variable(problem)
+    possible_values = problem.domains[starting_variable]
+
+    column = problem.columns.find(starting_variable[0:1])
+    row = problem.rows.find(starting_variable[1:2])
+
+    for character in str(possible_values):
+        value = int(character)
         
-        column = node.problem.columns.find(str(shortest_domain_cell)[0:1])
-        number = node.problem.rows.find(str(shortest_domain_cell)[1:2])
+        new_values = problem.values.copy()
+        new_values[column][row] = value
 
-        new_values = node.problem.values.copy()
+        new_sudoku = Sudoku(new_values)
 
-        for character in str(shortest_domain):
-            new_values[column][number] = int(character)
-            new_problem = Sudoku(new_values)
+        AC3(new_sudoku)
 
-            AC3(new_problem)
+        # AC3 sets unsolvable to true on failure
+        if not new_sudoku.unsolvable:
+            result = backtrack(new_sudoku, depth + 1)
 
-            if node.problem.is_solved():
-                print("Solved")
-                return node.problem
-            if node.problem.unsolvable:
-                print("Unsolvable")
-                return False
-
-            node.insert_child(Node(new_problem))
-
-        for child in node.children:
-            result = backtrack(child)
-
-            if result is not None and result != False and not result.unsolvable:
+            if not new_sudoku.unsolvable:
                 return result
 
-    return Sudoku(np.full((9, 9), -1))
+        # Remove from domain
+        location = str(possible_values).find(character)
+        new_str = str(possible_values)[:location] + str(possible_values)[location + 1:]
+        problem.domains[starting_variable] = int(new_str)
+
+    problem.unsolvable = True
+    return problem
 
 def main():
     global_longest_time = 0
@@ -221,32 +268,36 @@ def main():
         longest_time = 0
         shortest_time = np.inf
 
-        # for sudoku in sudokus:
-        start_time = time.process_time()
+        for sudoku in sudokus:
+            start_time = time.process_time()
 
-        # problem = Sudoku(sudoku)
-        problem = Sudoku(sudokus[sudoku_to_solve])
+            problem = Sudoku(sudoku)
 
-        AC3(problem)
-        problem = backtrack(Node(problem))
+            AC3(problem)
+            
+            if not problem.is_solved():
+                problem = backtrack(problem)
 
-        end_time = time.process_time()
+            problem = backtrack(problem)
 
-        correct = np.array_equal(problem.get_sudoku(), solutions[sudoku_to_solve])
-        # correct = np.array_equal(problem.get_sudoku(), solutions[count])
-        if not correct:
-            print("Test failed.")
-            failed += 1
+            end_time = time.process_time()
 
-        test_time = end_time - start_time
-        if test_time > longest_time:
-            longest_time = test_time
-        if test_time < shortest_time:
-            shortest_time = test_time
+            correct = np.array_equal(problem.get_sudoku(), solutions[count])
+            if not correct:
+                print("Failed test", count)
+                failed += 1
+            else:
+                print("Test passed")
 
-        total_time += test_time
+            test_time = end_time - start_time
+            if test_time > longest_time:
+                longest_time = test_time
+            if test_time < shortest_time:
+                shortest_time = test_time
 
-        count += 1
+            total_time += test_time
+
+            count += 1
 
         # No indent
         if longest_time > global_longest_time:
