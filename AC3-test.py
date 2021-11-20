@@ -7,7 +7,7 @@ from numpy.core.fromnumeric import var
 difficulties = ["very_easy", "easy", "medium", "hard"]
 
 class Sudoku:
-    def __init__(self, values, variables = [], domains = [], constraints = [], columns = "ABCDEFGHI", numbers = "123456789"):
+    def __init__(self, values, variables = [], domains = [], constraints = [], columns = "ABCDEFGHI", numbers = "123456789", peers = []):
         self.values = values
         
         self.variables = variables
@@ -17,11 +17,14 @@ class Sudoku:
         self.columns = columns
         self.rows = numbers
 
+        self.peers = peers
+
         self.unsolvable = False
 
         self.create_variables()
-        self.create_constraints()
         self.create_domains()
+        self.create_peers()
+        self.create_constraints()
 
     def is_solved(self):
         if self.unsolvable:
@@ -94,6 +97,32 @@ class Sudoku:
         self.alldiff("G1", "H1", "I1", "G2", "H2", "I2", "G3", "H3", "I3")
         self.alldiff("G4", "H4", "I4", "G5", "H5", "I5", "G6", "H6", "I6")
         self.alldiff("G7", "H7", "I7", "G8", "H8", "I8", "G9", "H9", "I9")
+
+    def create_peers(self, variable):
+        peers = []
+
+        column = self.columns.find(variable[0:1])
+        row = self.rows.find(variable[1:2])
+
+        top_left = (math.floor(column / 3), math.floor(row / 3))
+
+        for character in self.columns:
+            if character == variable[0:1] and str(self.columns.find(character) + 1) == variable[1:2]:
+                continue
+
+            peers.append(character + str(row + 1))
+            peers.append(variable[0:1] + str(self.columns.find(character) + 1))
+
+        for i in range (0, 3):
+            for j in range (0, 3):
+                column_to_add = self.columns[i + (3 * top_left[0])]
+                row_to_add = self.rows[j + (3 * top_left[1])]
+                square_to_add = column_to_add + row_to_add
+
+                if square_to_add not in peers and square_to_add != variable:
+                    peers.append(square_to_add)
+
+        self.peers = peers
         
     def alldiff(self, *args):
         for arg1 in args:
