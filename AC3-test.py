@@ -7,7 +7,7 @@ from numpy.core.fromnumeric import var
 difficulties = ["very_easy", "easy", "medium", "hard"]
 
 class Sudoku:
-    def __init__(self, values, variables = [], domains = [], constraints = [], columns = "ABCDEFGHI", numbers = "123456789", peers = []):
+    def __init__(self, values, variables = [], domains = [], constraints = [], columns = "ABCDEFGHI", numbers = "123456789", peers = {}):
         self.values = values
         
         self.variables = variables
@@ -23,7 +23,6 @@ class Sudoku:
 
         self.create_variables()
         self.create_domains()
-        self.create_peers()
         self.create_constraints()
 
     def is_solved(self):
@@ -67,37 +66,6 @@ class Sudoku:
 
         self.domains = new_domains
 
-    def create_constraints(self):
-        self.alldiff("A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9")
-        self.alldiff("B1", "B2", "B3", "B4", "B5", "B6", "B7", "B8", "B9")
-        self.alldiff("C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9")
-        self.alldiff("D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8", "D9")
-        self.alldiff("E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8", "E9")
-        self.alldiff("F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9")
-        self.alldiff("G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8", "G9")
-        self.alldiff("H1", "H2", "H3", "H4", "H5", "H6", "H7", "H8", "H9")
-        self.alldiff("I1", "I2", "I3", "I4", "I5", "I6", "I7", "I8", "I9")
-
-        self.alldiff("A1", "B1", "C1", "D1", "E1", "F1", "G1", "H1", "I1")
-        self.alldiff("A2", "B2", "C2", "D2", "E2", "F2", "G2", "H2", "I2")
-        self.alldiff("A3", "B3", "C3", "D3", "E3", "F3", "G3", "H3", "I3")
-        self.alldiff("A4", "B4", "C4", "D4", "E4", "F4", "G4", "H4", "I4")
-        self.alldiff("A5", "B5", "C5", "D5", "E5", "F5", "G5", "H5", "I5")
-        self.alldiff("A6", "B6", "C6", "D6", "E6", "F6", "G6", "H6", "I6")
-        self.alldiff("A7", "B7", "C7", "D7", "E7", "F7", "G7", "H7", "I7")
-        self.alldiff("A8", "B8", "C8", "D8", "E8", "F8", "G8", "H8", "I8")
-        self.alldiff("A9", "B9", "C9", "D9", "E9", "F9", "G9", "H9", "I9")
-        
-        self.alldiff("A1", "B1", "C1", "A2", "B2", "C2", "A3", "B3", "C3")
-        self.alldiff("A4", "B4", "C4", "A5", "B5", "C5", "A6", "B6", "C6")
-        self.alldiff("A7", "B7", "C7", "A8", "B8", "C8", "A9", "B9", "C9")
-        self.alldiff("D1", "E1", "F1", "D2", "E2", "F2", "D3", "E3", "F3")
-        self.alldiff("D4", "E4", "F4", "D5", "E5", "F5", "D6", "E6", "F6")
-        self.alldiff("D7", "E7", "F7", "D8", "E8", "F8", "D9", "E9", "F9")
-        self.alldiff("G1", "H1", "I1", "G2", "H2", "I2", "G3", "H3", "I3")
-        self.alldiff("G4", "H4", "I4", "G5", "H5", "I5", "G6", "H6", "I6")
-        self.alldiff("G7", "H7", "I7", "G8", "H8", "I8", "G9", "H9", "I9")
-
     def create_peers(self, variable):
         peers = []
 
@@ -122,13 +90,19 @@ class Sudoku:
                 if square_to_add not in peers and square_to_add != variable:
                     peers.append(square_to_add)
 
-        self.peers = peers
-        
-    def alldiff(self, *args):
-        for arg1 in args:
-            for arg2 in args:
-                if arg1 != arg2 and [arg1, arg2, "!="] not in self.constraints:
-                    self.constraints.append([arg1, arg2, "!="])
+        self.peers[variable] = peers
+
+    def create_constraints(self):
+        constraints = []
+
+        for variable in self.variables:
+            self.create_peers(variable)
+
+            for peer in self.peers[variable]:
+                if variable != peer:
+                    constraints.append([variable, peer, "!="])
+
+        self.constraints = constraints
 
     def get_sudoku(self):
         sudoku = []
@@ -227,6 +201,28 @@ def AC3(problem):
 
             problem.domains[domain] = int(str(problem.domains[domain]))
 
+# Least constraining value
+def select_value(problem, starting_variable):
+    possible_values = problem.domains[starting_variable]
+    peers = problem.peers[starting_variable]
+
+    constrained_variables_count = []
+    least_constrained_values = []
+
+    for value in str(possible_values):
+        constrained_variables = 0
+
+        for peer in peers:
+            if str(problem.domains[peer]).find(str(value)):
+                constrained_variables += 1
+
+        constrained_variables_count.append(constrained_variables)
+        constrained_variables_count.sort()
+        index = constrained_variables_count.index(constrained_variables)
+        least_constrained_values.insert(index, value)
+        
+    return least_constrained_values
+
 # Most constrained variable heuristic
 def select_unassigned_variable(problem):
     most_constrained_variable = None
@@ -251,12 +247,14 @@ def backtrack(problem, depth = 0):
         return problem
 
     starting_variable = select_unassigned_variable(problem)
-    possible_values = problem.domains[starting_variable]
+    possible_values = select_value(problem, starting_variable)
 
     column = problem.columns.find(starting_variable[0:1])
     row = problem.rows.find(starting_variable[1:2])
 
-    for character in str(possible_values):
+    select_value(problem, starting_variable)
+
+    for character in possible_values:
         value = int(character)
         
         new_values = problem.values.copy()
@@ -274,9 +272,14 @@ def backtrack(problem, depth = 0):
                 return result
 
         # Remove from domain
-        location = str(possible_values).find(character)
-        new_str = str(possible_values)[:location] + str(possible_values)[location + 1:]
-        problem.domains[starting_variable] = int(new_str)
+        location = possible_values.index(character)
+        new_str = possible_values[:location] + possible_values[location + 1:]
+
+        new_domain = ""
+        for element in new_str:
+            new_domain = new_domain + str(element)
+
+        problem.domains[starting_variable] = new_domain
 
     problem.unsolvable = True
     return problem
@@ -312,13 +315,14 @@ def main():
             end_time = time.process_time()
 
             correct = np.array_equal(problem.get_sudoku(), solutions[count])
+            test_time = end_time - start_time
+            
             if not correct:
                 print("Failed test", count)
                 failed += 1
             else:
-                print("Test passed")
+                print("Test passed", test_time)
 
-            test_time = end_time - start_time
             if test_time > longest_time:
                 longest_time = test_time
             if test_time < shortest_time:
