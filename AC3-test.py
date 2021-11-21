@@ -18,6 +18,7 @@ class Sudoku:
         self.rows = numbers
 
         self.peers = peers
+        self.peer_groups = {}
 
         self.unsolvable = False
 
@@ -68,6 +69,7 @@ class Sudoku:
 
     def create_peers(self, variable):
         peers = []
+        peer_groups = [ [], [], [] ]
 
         column = self.columns.find(variable[0:1])
         row = self.rows.find(variable[1:2])
@@ -81,6 +83,12 @@ class Sudoku:
             peers.append(character + str(row + 1))
             peers.append(variable[0:1] + str(self.columns.find(character) + 1))
 
+            if character + str(row + 1) != variable:
+                peer_groups[0].append(character + str(row + 1))
+
+            if (variable[0:1] + str(self.columns.find(character) + 1)) != variable:
+                peer_groups[1].append(variable[0:1] + str(self.columns.find(character) + 1))
+
         for i in range (0, 3):
             for j in range (0, 3):
                 column_to_add = self.columns[i + (3 * top_left[0])]
@@ -90,7 +98,11 @@ class Sudoku:
                 if square_to_add not in peers and square_to_add != variable:
                     peers.append(square_to_add)
 
+                if square_to_add != variable:
+                    peer_groups[2].append(square_to_add)
+
         self.peers[variable] = peers
+        self.peer_groups[variable] = peer_groups
 
     def create_constraints(self):
         constraints = []
@@ -166,6 +178,28 @@ def AC3(problem):
 
             problem.domains[domain] = int(str(problem.domains[domain]))
 
+# Peer consistency
+def peer_consistency(problem):
+    for variable in problem.variables:
+        domain = problem.domains[variable]
+
+        if len(str(domain)) == 1:
+            continue
+
+        for value in str(domain):
+            for group in problem.peer_groups[variable]:
+                unique = True
+
+                for peer in group:
+                    if value in str(problem.domains[peer]):
+                        unique = False
+                        break
+
+                if unique:
+                    problem.domains[variable] = int(value)
+                    peer_consistency(problem)
+                    break
+
 # Least constraining value
 def select_value(problem, starting_variable):
     possible_values = problem.domains[starting_variable]
@@ -227,6 +261,7 @@ def backtrack(problem, depth = 0):
 
         new_sudoku = Sudoku(new_values)
 
+        peer_consistency(new_sudoku)
         AC3(new_sudoku)
 
         # AC3 sets unsolvable to true on failure
@@ -270,12 +305,13 @@ def main():
 
             problem = Sudoku(sudoku)
 
-            AC3(problem)
+            peer_consistency(problem)
+
+            if not problem.is_solved():
+                AC3(problem)
             
             if not problem.is_solved():
                 problem = backtrack(problem)
-
-            problem = backtrack(problem)
 
             end_time = time.process_time()
 
