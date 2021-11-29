@@ -140,6 +140,7 @@ def element_should_be_removed(problem, domain2, valueA, operator):
     return True
 
 def AC3(problem):
+    changed = False
     agenda = []
 
     for constraint in problem.constraints:
@@ -171,15 +172,40 @@ def AC3(problem):
 
             location = str(problem.domains[domain]).find(value)
             problem.domains[domain] = str(problem.domains[domain])[:location] + str(problem.domains[domain])[location + 1:]
+            changed = True
 
             if problem.domains[domain] == "":
                 problem.unsolvable = True
-                return
+                return False
 
             problem.domains[domain] = int(str(problem.domains[domain]))
 
+    return changed
+
+def valid_peer_set(problem):
+    peer_groups = problem.peer_groups
+    
+    for variable in peer_groups:
+        list = str(problem.domains[variable])
+        group = peer_groups[variable]
+        
+        for compare in group:
+            for new_variable in compare:
+                domain = problem.domains[new_variable]
+                for character in str(domain):
+                    if character not in list:
+                        list = list + character
+
+        if len(list) != 9:
+            problem.unsolvable = True
+            return False
+
+    return True
+
 # Peer consistency
 def peer_consistency(problem):
+    changed = False
+
     for variable in problem.variables:
         domain = problem.domains[variable]
 
@@ -198,7 +224,23 @@ def peer_consistency(problem):
                 if unique:
                     problem.domains[variable] = int(value)
                     peer_consistency(problem)
+                    changed = True
                     break
+
+    return changed
+
+def inference(problem):
+    peers_changed = peer_consistency(problem)
+    arcs_changed = AC3(problem)
+
+    if not valid_peer_set(problem):
+        problem.unsolvable = True
+        return problem
+
+    if peers_changed or arcs_changed:
+        return inference(problem)
+    else:
+        return problem
 
 # Least constraining value
 def select_value(problem, starting_variable):
@@ -261,15 +303,14 @@ def backtrack(problem, depth = 0):
 
         new_sudoku = Sudoku(new_values)
 
-        peer_consistency(new_sudoku)
-        AC3(new_sudoku)
+        new_sudoku = inference(new_sudoku)
 
-        # AC3 sets unsolvable to true on failure
-        if not new_sudoku.unsolvable:
-            result = backtrack(new_sudoku, depth + 1)
-
+        if new_sudoku is not False:
             if not new_sudoku.unsolvable:
-                return result
+                result = backtrack(new_sudoku, depth + 1)
+
+                if not new_sudoku.unsolvable:
+                    return result
 
         # Remove from domain
         location = possible_values.index(character)
@@ -304,14 +345,11 @@ def main():
             start_time = time.process_time()
 
             problem = Sudoku(sudoku)
-
-            peer_consistency(problem)
-
-            if not problem.is_solved():
-                AC3(problem)
+            problem = inference(problem)
             
-            if not problem.is_solved():
-                problem = backtrack(problem)
+            if problem is not False:
+                if not problem.is_solved():
+                    problem = backtrack(problem)
 
             end_time = time.process_time()
 
