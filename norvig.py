@@ -112,7 +112,10 @@ def display(values):
 
 def solve(grid): return search(parse_grid(grid))
 
-def search(values):
+def search(values, depth = 0):
+    if depth == 0:
+        print(values)
+
     "Using depth-first search and propagation, try all possible values."
     if values is False:
         return False ## Failed earlier
@@ -120,7 +123,7 @@ def search(values):
         return values ## Solved!
     ## Chose the unfilled square s with the fewest possibilities
     n,s = min((len(values[s]), s) for s in squares if len(values[s]) > 1)
-    return some(search(assign(values.copy(), s, d))
+    return some(search(assign(values.copy(), s, d), depth + 1)
                 for d in values[s])
 
 ################ Utilities ################
@@ -183,10 +186,11 @@ grid1  = '0030206009003050010018064000081029007000000080067082000026095008002030
 grid2  = '4.....8.5.3..........7......2.....6.....8.4......1.......6.3.7.5..2.....1.4......'
 hard1  = '000007540906050030000000200200000790003041000700000050030004020094100000000590004'
 hard2  = '000000050207009000600351000500000010003000008000820530000070804006200000080000700'
-    
+hard3  = "090031800105000000800900007000700030009020700020000005000000000040208060008405370"    
+
 if __name__ == '__main__':
     start = time.process_time()
-    print(solve(hard2))
+    print(solve(hard3))
     end = time.process_time()
     print("Solved in", end-start)
 
