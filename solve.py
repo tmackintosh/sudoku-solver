@@ -30,17 +30,11 @@ class Sudoku:
         if self.unsolvable:
             return True
 
-        for marker in ["A1", "B4", "C7", "D2", "E5", "F8", "G3", "H6", "I9"]:
-            for group in self.peer_groups[marker]:
-                group_total = 0
-                group_numbers = ""
-
-                for variable in group:
-                    group_total += self.domains[variable]
-                    group_numbers = group_numbers + str(self.domains[variable])
-                    
-                if group_total != 45 - self.domains[marker] or len(group_numbers) != 8:
-                    return False
+        for constraint in self.constraints:
+            domain0 = str(self.domains[constraint[0]])
+            domain1 = str(self.domains[constraint[1]])
+            if not eval(domain0 + constraint[2] + domain1):
+                return False
 
         return True
 
