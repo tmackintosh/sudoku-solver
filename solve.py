@@ -4,7 +4,7 @@ import math
 
 from numpy.core.fromnumeric import var
 
-difficulties = ["very_easy", "easy", "medium", "hard"]
+difficulties = ["very_easy", "hard"]
 
 class Sudoku:
     def __init__(self, values, variables = [], domains = [], constraints = [], columns = "ABCDEFGHI", numbers = "123456789", peers = {}):
@@ -233,11 +233,14 @@ def inference(problem):
     peers_changed = peer_consistency(problem)
     arcs_changed = AC3(problem)
 
+    if problem.unsolvable:
+        return problem
+
     if not valid_peer_set(problem):
         problem.unsolvable = True
         return problem
 
-    if peers_changed or arcs_changed:
+    if (peers_changed or arcs_changed):
         return inference(problem)
     else:
         return problem
@@ -288,12 +291,10 @@ def backtrack(problem, depth = 0):
         return problem
 
     starting_variable = select_unassigned_variable(problem)
-    possible_values = select_value(problem, starting_variable)
+    possible_values = str(problem.domains[starting_variable])
 
     column = problem.columns.find(starting_variable[0:1])
     row = problem.rows.find(starting_variable[1:2])
-
-    select_value(problem, starting_variable)
 
     for character in possible_values:
         value = int(character)
