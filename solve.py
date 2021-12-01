@@ -4,7 +4,7 @@ import math
 
 from numpy.core.fromnumeric import var
 
-difficulties = ["very_easy", "hard"]
+difficulties = ["hard"]
 
 class Sudoku:
     def __init__(self, values, variables = [], domains = [], constraints = [], columns = "ABCDEFGHI", numbers = "123456789", peers = {}):
@@ -30,16 +30,17 @@ class Sudoku:
         if self.unsolvable:
             return True
 
-        for constraint in self.constraints:
-            operand1 = str(self.domains[constraint[0]])
-            operand2 = str(self.domains[constraint[1]])
-            operator = constraint[2]
+        for marker in ["A1", "B4", "C7", "D2", "E5", "F8", "G3", "H6", "I9"]:
+            for group in self.peer_groups[marker]:
+                group_total = 0
+                group_numbers = ""
 
-            if int(operand1) > 9 or int(operand2) > 9:
-                return False
-
-            if not eval(operand1 + operator + operand2):
-                return False
+                for variable in group:
+                    group_total += self.domains[variable]
+                    group_numbers = group_numbers + str(self.domains[variable])
+                    
+                if group_total != 45 - self.domains[marker] or len(group_numbers) != 8:
+                    return False
 
         return True
 
@@ -111,7 +112,7 @@ class Sudoku:
             self.create_peers(variable)
 
             for peer in self.peers[variable]:
-                if variable != peer:
+                if variable != peer and not [peer, variable, "!="] in constraints:
                     constraints.append([variable, peer, "!="])
 
         self.constraints = constraints
@@ -145,6 +146,7 @@ def AC3(problem):
 
     for constraint in problem.constraints:
         agenda.append(constraint)
+        agenda.append([constraint[1], constraint[0], constraint[2]])
 
     count = 0
 
@@ -304,14 +306,14 @@ def backtrack(problem, depth = 0):
 
         new_sudoku = Sudoku(new_values)
 
-        new_sudoku = inference(new_sudoku)
+        if depth != 0:
+            new_sudoku = inference(new_sudoku)
 
-        if new_sudoku is not False:
-            if not new_sudoku.unsolvable:
-                result = backtrack(new_sudoku, depth + 1)
+        if not new_sudoku.unsolvable:
+            result = backtrack(new_sudoku, depth + 1)
 
-                if not new_sudoku.unsolvable:
-                    return result
+            if not result.unsolvable:
+                return result
 
         # Remove from domain
         location = possible_values.index(character)
@@ -348,9 +350,8 @@ def main():
             problem = Sudoku(sudoku)
             problem = inference(problem)
             
-            if problem is not False:
-                if not problem.is_solved():
-                    problem = backtrack(problem)
+            if not problem.is_solved():
+                problem = backtrack(problem)
 
             end_time = time.process_time()
 
@@ -383,6 +384,7 @@ def main():
         print(longest_time, "was the longest solution.")
         print(shortest_time, "was the shortest solution.")
         print(total_time, "was taken in total.")
+        print(total_time / 15, "average solution.")
         print("-")
 
     print("Shortest time in total:", global_shortest_time)
