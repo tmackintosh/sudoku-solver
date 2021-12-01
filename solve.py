@@ -311,13 +311,7 @@ def backtrack(problem, depth = 0):
 
         # Remove from domain
         location = possible_values.index(character)
-        new_str = possible_values[:location] + possible_values[location + 1:]
-
-        new_domain = ""
-        for element in new_str:
-            new_domain = new_domain + str(element)
-
-        problem.domains[starting_variable] = new_domain
+        problem.domains[starting_variable] = possible_values[:location] + possible_values[location + 1:]
 
     problem.unsolvable = True
     return problem
