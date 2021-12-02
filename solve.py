@@ -7,7 +7,7 @@ from numpy.core.fromnumeric import var
 difficulties = ["hard"]
 
 class Sudoku:
-    def __init__(self, values, variables = [], domains = [], constraints = [], columns = "ABCDEFGHI", numbers = "123456789", peers = {}):
+    def __init__(self, values, variables = [], domains = [], constraints = [], columns = "ABCDEFGHI", numbers = "123456789", peers = {}, peer_groups = {}):
         self.values = values
         
         self.variables = variables
@@ -18,13 +18,18 @@ class Sudoku:
         self.rows = numbers
 
         self.peers = peers
-        self.peer_groups = {}
+        self.peer_groups = peer_groups
 
         self.unsolvable = False
 
-        self.create_variables()
-        self.create_domains()
-        self.create_constraints()
+        if self.variables == []:
+            self.create_variables()
+
+        if self.domains == []:
+            self.create_domains()
+
+        if self.constraints == []:
+            self.create_constraints()
 
     def is_solved(self):
         if self.unsolvable:
@@ -241,28 +246,6 @@ def inference(problem):
     else:
         return problem
 
-# Least constraining value
-def select_value(problem, starting_variable):
-    possible_values = problem.domains[starting_variable]
-    peers = problem.peers[starting_variable]
-
-    constrained_variables_count = []
-    least_constrained_values = []
-
-    for value in str(possible_values):
-        constrained_variables = 0
-
-        for peer in peers:
-            if str(problem.domains[peer]).find(str(value)):
-                constrained_variables += 1
-
-        constrained_variables_count.append(constrained_variables)
-        constrained_variables_count.sort()
-        index = constrained_variables_count.index(constrained_variables)
-        least_constrained_values.insert(index, value)
-        
-    return least_constrained_values
-
 # Most constrained variable heuristic
 def select_unassigned_variable(problem):
     most_constrained_variable = None
@@ -298,7 +281,7 @@ def backtrack(problem, depth = 0):
         new_values = problem.values.copy()
         new_values[column][row] = value
 
-        new_sudoku = Sudoku(new_values)
+        new_sudoku = Sudoku(new_values, variables = problem.variables, constraints = problem.constraints, peers = problem.peers, peer_groups = problem.peer_groups)
 
         if depth != 0:
             new_sudoku = inference(new_sudoku)
