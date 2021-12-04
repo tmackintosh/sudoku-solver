@@ -1,57 +1,101 @@
+# Sudoku Solver #
+
 import numpy as np
 import time
 import math
 
-from numpy.core.fromnumeric import var
+difficulties = ["very_easy", "easy", "medium", "hard"]
 
-difficulties = ["hard"]
-
+"""
+Sudoku class allows us to instantiate objects that can abstract the problem.
+"""
 class Sudoku:
-    def __init__(self, values, variables = [], domains = [], constraints = [], columns = "ABCDEFGHI", numbers = "123456789", peers = {}, peer_groups = {}):
+    def __init__(self, values, variables = [], constraints = [], peers = {}, peer_groups = {}):
+        """
+        Instantiates a new Sudoku object that can abstract each state and be manipulated to keep track of state progress.
+
+        @param values: 2D List of values, or 0 where there is no value
+        @param variables: List of all variables (squares) in the state (sudoku). For example: "A1", "I9".
+        @param constraints: List of all constraints in the state. For example: ["A1", "I9", "!="]
+        @param peers: Dictionary of every variable's peers where the key is the variable and the value is the list of peers.
+        @param peer_groups: Dictionary of every variable's peer groups, such as the list of variables in its row, column and unit.
+
+        @returns Newly created Sudoku object
+        """
+
+        # Values are the initial inputs in the Sudoku.
+        # Used to create constraints and restrict domains.
         self.values = values
-        
-        self.variables = variables
-        self.domains = domains
-        self.constraints = constraints
 
-        self.columns = columns
-        self.rows = numbers
+        self.columns = "ABCDEFGHI"
+        self.rows = "123456789"
 
+        # Peers dictionaries allow us easy look up of a variable's peers without
+        # having to iterate through the whole state.
         self.peers = peers
         self.peer_groups = peer_groups
+        
+        # Typical CSP formulation
+        self.variables = variables or self.create_variables()
+        self.constraints = constraints or self.create_constraints()
+        self.domains = self.create_domains()
 
         self.unsolvable = False
 
-        if self.variables == []:
-            self.create_variables()
-
-        if self.domains == []:
-            self.create_domains()
-
-        if self.constraints == []:
-            self.create_constraints()
-
     def is_solved(self):
+        """
+        Assesses the domains of the whole table and returns whether the state is a
+        goal state.
+
+        @returns Boolean of whether the state is a goal state.
+        """
         if self.unsolvable:
             return True
 
         for constraint in self.constraints:
-            domain0 = str(self.domains[constraint[0]])
-            domain1 = str(self.domains[constraint[1]])
-            if not eval(domain0 + constraint[2] + domain1):
+            operand1 = constraint[0]
+            operand2 = constraint[1]
+            operator = constraint[2]
+        
+            domain1 = str(self.domains[operand1])
+            domain2 = str(self.domains[operand2])
+
+            if not eval(domain1 + operator + domain2):
                 return False
 
         return True
 
     def create_variables(self):
+        """
+        Generates a list of all variables in a Sudoku state, such as "A1", "I9"
+
+        @returns List of newly created variables
+        """
+        variables = []
+
         for character in self.columns:
             for number in self.rows:
                 cell_id = character + number
                 
-                if cell_id not in self.variables:
-                    self.variables.append(cell_id)
+                if cell_id not in variables:
+                    variables.append(cell_id)
+
+        return variables
 
     def create_domains(self):
+        """
+        Generates a dictionary for the domain of each variable to be all 9 numbers 
+        except values that already have a set value, where the domain is simply
+        that value.
+
+        Keys are strings
+        Domains are integers to allow integer comparison when assessing states
+
+        ["A1"] = 123456789
+        ["I9"] = 7
+
+        @returns List of newly created dictionary of each variable's domain.
+        """
         new_domains = {}
 
         for variable in self.variables:
@@ -60,34 +104,55 @@ class Sudoku:
 
             current_value = self.values[column][row]
 
+            # If there is no set value assigned to a variable, it has a value of 0
             if current_value == 0:
                 new_domains[variable] = int(self.rows)
             else:
                 new_domains[variable] = current_value
 
-        self.domains = new_domains
+        return new_domains
 
     def create_peers(self, variable):
+        """
+        Generates the lists of peers and peer groups for the variable.
+
+        Peers is simply a list of the peer variables.
+        Peer groups are split into 3 lists representing peers in, respectively, the same:
+            - row
+            - column
+            - unit
+
+        @param variable: String of the variable name to generate peers for
+
+        @returns None
+        """
         peers = []
         peer_groups = [ [], [], [] ]
 
-        column = self.columns.find(variable[0:1])
-        row = self.rows.find(variable[1:2])
+        variable_column = variable[0:1]
+        variable_row = variable[1:2]
 
+        column = self.columns.find(variable_column)
+        row = self.rows.find(variable_row)
+
+        # Top left of the unit allows us to easy generate the unit peers.
         top_left = (math.floor(column / 3), math.floor(row / 3))
 
-        for character in self.columns:
-            if character == variable[0:1] and str(self.columns.find(character) + 1) == variable[1:2]:
+        for peer_column in self.columns:
+            peer_row = self.columns.find(peer_column) + 1
+
+            # Don't generate the variable as its own peer
+            if peer_column == variable_column and str(peer_row) == variable_row:
                 continue
 
-            peers.append(character + str(row + 1))
-            peers.append(variable[0:1] + str(self.columns.find(character) + 1))
+            peers.append(peer_column + str(row + 1))
+            peers.append(variable_column + str(peer_row))
 
-            if character + str(row + 1) != variable:
-                peer_groups[0].append(character + str(row + 1))
+            if peer_column + str(row + 1) != variable:
+                peer_groups[0].append(peer_column + str(row + 1))
 
-            if (variable[0:1] + str(self.columns.find(character) + 1)) != variable:
-                peer_groups[1].append(variable[0:1] + str(self.columns.find(character) + 1))
+            if (variable_column + str(peer_row)) != variable:
+                peer_groups[1].append(variable_column + str(peer_row))
 
         for i in range (0, 3):
             for j in range (0, 3):
@@ -105,6 +170,11 @@ class Sudoku:
         self.peer_groups[variable] = peer_groups
 
     def create_constraints(self):
+        """
+        Generates a list of all constraints for the Sudoku CSP
+
+        @returns List of generated constraints.
+        """
         constraints = []
 
         for variable in self.variables:
@@ -114,9 +184,16 @@ class Sudoku:
                 if variable != peer and not [peer, variable, "!="] in constraints:
                     constraints.append([variable, peer, "!="])
 
-        self.constraints = constraints
+        return constraints
 
     def get_sudoku(self):
+        """
+        Generates a typical array of values from the state's domains.
+        Or generates a numpy array of -1 if the state is a non-solvable
+        state.
+
+        @returns Array of values in the state or numpy array of -1s if the state is unsolvable
+        """
         sudoku = []
 
         if self.unsolvable:
@@ -133,6 +210,16 @@ class Sudoku:
         return sudoku
 
 def element_should_be_removed(problem, domain2, valueA, operator):
+    """
+    Determines whether a value should be removed from a variable's domain
+    as one of the variable's peers has the value as an assignment.
+
+    @param domain2: int of the domain we're checking against
+    @param valueA: character of the value we're assessing is in the domain
+    @param operator: a string representing the Python notation for a comparison, for example: "!=", "==", ">"
+
+    @returns boolean of whether the element should be removed from the domain
+    """
     for valueB in str(problem.domains[domain2]):
         if eval(str(valueA) + operator + str(valueB)):
             return False
@@ -140,23 +227,47 @@ def element_should_be_removed(problem, domain2, valueA, operator):
     return True
 
 def AC3(problem):
+    """
+    Arc-Consistency 3 Algorithm
+
+    Given the current problem's state, iterate through the constraints
+    and remove values from variable's domains when an inconsistency is
+    detected.
+
+    Follow this up by checking any peers that may have been affected by
+    this removal for further inference.
+
+    This provides complete arc consistency in the state by manipulating
+    the problem parameter directly.
+
+    @param problem: CSP object to manipulate for arc-consistency
+
+    @returns boolean: whether any values in the domain were removed
+    """
+
+    # Keep track of whether any values have been changed so inference
+    # knows to keep arc consistency after a potential peer consistency
+    # check.
     changed = False
     agenda = []
 
     for constraint in problem.constraints:
+        # Add both the constraint, and the reverse of the constraint to
+        # the agenda.
         agenda.append(constraint)
         agenda.append([constraint[1], constraint[0], constraint[2]])
 
-    count = 0
-
     while len(agenda) > 0:
-        count += 1
         constraint = agenda.pop()
         
         domain1 = constraint[0]
         domain2 = constraint[1]
         operator = constraint[2]
 
+        # Keep track of removals to remove them
+        # after the initial iteration has completed as
+        # the domains should be immutable while they're
+        # being iterated through
         removals = []
 
         for value in str(problem.domains[domain1]):
@@ -179,11 +290,21 @@ def AC3(problem):
                 problem.unsolvable = True
                 return False
 
-            problem.domains[domain] = int(str(problem.domains[domain]))
+            problem.domains[domain] = int(problem.domains[domain])
 
     return changed
 
 def valid_peer_set(problem):
+    """
+    Determine whether we can render the state as unsolvable by seeing
+    whether there are any variable domains which cannot be put into
+    a peer group. 
+    
+    For example, if there is no place for a 7 in row A, we know the
+    state is unsolvable.
+
+    @returns boolean of whether all peer groups are consistent
+    """
     peer_groups = problem.peer_groups
     
     for variable in peer_groups:
@@ -197,6 +318,8 @@ def valid_peer_set(problem):
                     if character not in list:
                         list = list + character
 
+        # If a number hasn't been seen in any domain in the peer
+        # group, we know it can't be assigned into this peer group
         if len(list) != 9:
             problem.unsolvable = True
             return False
@@ -205,11 +328,19 @@ def valid_peer_set(problem):
 
 # Peer consistency
 def peer_consistency(problem):
+    """
+    If there is only 1 place that a value can go in a peer group,
+    we know the value must go there.
+    """
+    # Keep track of whether any domains have been changed so
+    # inference knows to keep peer consistency if any domains
+    # were changed by a further arc consistency check.
     changed = False
 
     for variable in problem.variables:
         domain = problem.domains[variable]
 
+        # A variable has 1 domain if it is already assigned
         if len(str(domain)) == 1:
             continue
 
@@ -224,15 +355,26 @@ def peer_consistency(problem):
 
                 if unique:
                     problem.domains[variable] = int(value)
+
+                    # We may be able to infer further values after
+                    # this variable is assigned.
                     peer_consistency(problem)
+
                     changed = True
                     break
 
     return changed
 
 def inference(problem):
-    peers_changed = peer_consistency(problem)
+    """
+    Given the assignments of the states, we are able to reduce and remove
+    values from each variables domain through arc consistency and peer
+    consistency.
+
+    @returns the mutated CSP object after inference
+    """
     arcs_changed = AC3(problem)
+    peers_changed = peer_consistency(problem)
 
     if problem.unsolvable:
         return problem
@@ -246,8 +388,13 @@ def inference(problem):
     else:
         return problem
 
-# Most constrained variable heuristic
 def select_unassigned_variable(problem):
+    """
+    Select the most constrained variable in a state to give us
+    the best chance of reducing the search tree to find a solution.
+
+    @returns the variable name of the most constrained variable
+    """
     most_constrained_variable = None
     possible_values = np.inf
 
@@ -263,12 +410,20 @@ def select_unassigned_variable(problem):
 
     return most_constrained_variable
 
-# Assign values to variables under the heuristic and assess whether they've
-# valid or not. If not, backtrack up and start again using a different value.
 def backtrack(problem, depth = 0):
+    """
+    Assign a value to a variable given suitable heuristics and check
+    whether the new state is a goal state. If not, backtrack up to
+    the previous assignment and try a new value.
+
+    @param problem: CSP to search for goal states
+
+    @returns new or mutated CSP object in a goal state or unsolvable state
+    """
     if problem.is_solved():
         return problem
 
+    # Most constrained value heuristic
     starting_variable = select_unassigned_variable(problem)
     possible_values = str(problem.domains[starting_variable])
 
@@ -281,10 +436,12 @@ def backtrack(problem, depth = 0):
         new_values = problem.values.copy()
         new_values[column][row] = value
 
+        # Create new sudoku object with new assignments so we can keep
+        # the previous assignments in the stack in case this one fails
         new_sudoku = Sudoku(new_values, variables = problem.variables, constraints = problem.constraints, peers = problem.peers, peer_groups = problem.peer_groups)
 
         if depth != 0:
-            new_sudoku = inference(new_sudoku)
+            inference(new_sudoku)
 
         if not new_sudoku.unsolvable:
             result = backtrack(new_sudoku, depth + 1)
@@ -296,6 +453,7 @@ def backtrack(problem, depth = 0):
         location = possible_values.index(character)
         problem.domains[starting_variable] = possible_values[:location] + possible_values[location + 1:]
 
+    # If we've tried every value with no success, we know there are no possibilites
     problem.unsolvable = True
     return problem
 
@@ -319,7 +477,7 @@ def main():
             start_time = time.process_time()
 
             problem = Sudoku(sudoku)
-            problem = inference(problem)
+            inference(problem)
             
             if not problem.is_solved():
                 problem = backtrack(problem)
