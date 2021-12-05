@@ -439,9 +439,7 @@ def backtrack(problem, depth = 0):
         # Create new sudoku object with new assignments so we can keep
         # the previous assignments in the stack in case this one fails
         new_sudoku = Sudoku(new_values, variables = problem.variables, constraints = problem.constraints, peers = problem.peers, peer_groups = problem.peer_groups)
-
-        if depth != 0:
-            inference(new_sudoku)
+        inference(new_sudoku)
 
         if not new_sudoku.unsolvable:
             result = backtrack(new_sudoku, depth + 1)
@@ -460,6 +458,7 @@ def backtrack(problem, depth = 0):
 def main():
     global_longest_time = 0
     global_shortest_time = np.inf
+    global_start = time.process_time()
 
     for difficulty in difficulties:
         print("Testing", difficulty)
@@ -518,5 +517,6 @@ def main():
 
     print("Shortest time in total:", global_shortest_time)
     print("Longest time in total:", global_longest_time)
+    print("Total time taken:", time.process_time() - global_start)
 
 main()
