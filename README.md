@@ -193,6 +193,8 @@ Perhaps it would be worth heading in a different representation direction by hav
 
 Keep track of the search tree would be as easy as keeping track of which variable was assigned at each node, so we can reverse the assignment when backtracking up.
 
+It seems also that the main bottleneck in the algorithm is the backtracking search for solutions in the hard example problems.
+
 <b>13 Final Results</b>
 ```
 All 60 example sudokus
@@ -238,6 +240,12 @@ Best-Case: 0.15625
 Average-Case: 1.7375
 Worst-Case: 8.21875
 ```
+
+<b>14 Conclusion</b>
+
+We have implemented a Constraint Satisfaction Problem for the sudoku puzzle that can heavily outperform humans by exploiting inference and searching through potential assignments.
+
+Although not as optimal as I would have liked, it is still an interesting way to show that puzzles can be abstracted and inferred using deduction.
 
 <b><i>References</b></i>
 
